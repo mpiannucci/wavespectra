@@ -48,12 +48,40 @@ def chunks_dict(chunks, mapping):
     return _chunks
 
 
+def open_netcdf(filename_or_fileglob, chunks):
+    """Open netcdf file.
+
+    Netcdf files are attempted to be open with xr.open_mfdataset first to handle either
+    single or multiple files. However, this function does not support file-like
+    objects, so if an error is raised, we assume a file-like object is passed and open
+    it directly with xr.open_dataset.
+
+    Args:
+        - filename_or_fileglob (str, list, fileobj): filename, fileglob specifying
+          multiple files, or fileobj to read.
+        - chunks (dict): chunk sizes for dimensions in dataset. By default
+          dataset is loaded using single chunk for all dimensions (see
+          xr.open_mfdataset documentation).
+
+    Returns:
+        - dset (Dataset): spectra dataset object read from netcdf file.
+
+    """
+    try:
+        dset = xr.open_mfdataset(
+            filename_or_fileglob, chunks=chunks, combine="by_coords"
+        )
+    except (ValueError, IndexError):
+        dset = xr.open_dataset(filename_or_fileglob, chunks=chunks)
+    return dset
+
+
 def open_netcdf_or_zarr(filename_or_fileglob, file_format, mapping={}, chunks={}):
     """Read spectra dataset in either netcdf or zarr format.
 
     Args:
-        - filename_or_fileglob (str, list, fileobj): filename, fileglob specifying multiple
-          files, or fileobj to read.
+        - filename_or_fileglob (str, list, fileobj): filename, fileglob specifying
+          multiple files, or fileobj to read.
         - file_format (str): format of file to open, one of `netcdf` or `zarr`.
         - mapping (dict): coordinates mapping from original dataset to wavespectra.
         - chunks (dict): chunk sizes for dimensions in dataset. By default
@@ -61,23 +89,13 @@ def open_netcdf_or_zarr(filename_or_fileglob, file_format, mapping={}, chunks={}
           xr.open_mfdataset documentation).
 
     Returns:
-        - dset (Dataset): spectra dataset object read from ww3 file.
+        - dset (Dataset): spectra dataset object read from netcdf or zarr file.
 
     """
     # Allow chunking using wavespectra names
     _chunks = chunks_dict(chunks, mapping)
     if file_format == "netcdf":
-        # Use mfdataset to open if a filename or fileglob is passed
-        # otherwise we assume a fileobj is passed and open it directly with
-        # xr.open_dataset
-        try:
-            dset = xr.open_mfdataset(
-                filename_or_fileglob, chunks=_chunks, combine="by_coords"
-            )
-        # TODO: Some inconsistency in how xarray handles fileobjs between different
-        # versions. For now use a catch all.
-        except Exception:
-            dset = xr.open_dataset(filename_or_fileglob, chunks=_chunks)
+        dset = open_netcdf(filename_or_fileglob, _chunks)
     elif file_format == "zarr":
         dset = xr.open_zarr(filename_or_fileglob, consolidated=True, chunks=_chunks)
     else:

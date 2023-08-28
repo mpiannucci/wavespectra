@@ -59,9 +59,7 @@ def open_netcdf(filename_or_fileglob, chunks):
     Args:
         - filename_or_fileglob (str, list, fileobj): filename, fileglob specifying
           multiple files, or fileobj to read.
-        - chunks (dict): chunk sizes for dimensions in dataset. By default
-          dataset is loaded using single chunk for all dimensions (see
-          xr.open_mfdataset documentation).
+        - chunks (dict): chunk sizes for dimensions in dataset.
 
     Returns:
         - dset (Dataset): spectra dataset object read from netcdf file.
@@ -101,3 +99,24 @@ def open_netcdf_or_zarr(filename_or_fileglob, file_format, mapping={}, chunks={}
     else:
         raise ValueError("file_format must be one of ('netcdf', 'zarr')")
     return dset
+
+
+def read_ascii_or_binary(file, mode="r"):
+    """Read content from ascii or binary file.
+
+    Args:
+        - file (str, fileobj): Name of file or file object to read.
+        - mode (str): Mode to open file, one of 'r', 'rb'.
+
+    Returns:
+        - data (list): List of lines read from file.
+
+    """
+    try:
+        data = file.readlines()
+    except AttributeError:
+        if mode not in ["r", "rb"]:
+            raise ValueError("mode must be one of 'r', 'rb'")
+        with open(file, mode) as stream:
+            data = stream.readlines()
+    return data
